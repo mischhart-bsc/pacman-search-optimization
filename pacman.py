@@ -12,13 +12,17 @@ class Game:
         self.screen = pygame.display.set_mode(RESOLUTION)
         self.timer = pygame.time.Clock()
         self.game_engine = self.init()
-        self.game_start_sfx = pygame.mixer.Sound('media/game_start.wav')
+        self.game_start_sfx = pygame.mixer.Sound("media/game_start.wav")
 
     def init(self):
         board = BOARD.copy()
         board_definition = BoardDefinition(board)
-        level_1 = LevelConfig(wall_color='blue', gate_color='white',
-                              board_definition=board_definition, power_up_limit=POWER_UP_LIMIT)
+        level_1 = LevelConfig(
+            wall_color="blue",
+            gate_color="white",
+            board_definition=board_definition,
+            power_up_limit=POWER_UP_LIMIT,
+        )
         level_init = LevelContentInitializer(level_1, self.screen)
         return level_init.init_game_engine()
 
@@ -37,13 +41,13 @@ class Game:
                 sys.exit()
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
-                    self.game_engine.direction_command = Direction.LEFT
+                    self.game_engine.queued_direction = Direction.LEFT
                 if event.key == pygame.K_RIGHT:
-                    self.game_engine.direction_command = Direction.RIGHT
+                    self.game_engine.queued_direction = Direction.RIGHT
                 if event.key == pygame.K_DOWN:
-                    self.game_engine.direction_command = Direction.DOWN
+                    self.game_engine.queued_direction = Direction.DOWN
                 if event.key == pygame.K_UP:
-                    self.game_engine.direction_command = Direction.UP
+                    self.game_engine.queued_direction = Direction.UP
                 if event.key == pygame.K_SPACE and self.game_engine.game_over:
                     pygame.init()
                     self.game_start_sfx.play()
@@ -61,6 +65,6 @@ class Game:
             self.draw()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     game = Game()
     game.run()
