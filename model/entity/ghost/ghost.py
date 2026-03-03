@@ -9,14 +9,33 @@ from model.space_params.space_params import SpaceParams
 from model.turns import Turns
 from settings import *
 
+# Students can enable pathfinding after implementing it for MC2
+try:
+    from model.algorithms.pathfinding import find_shortest_path
+
+    PATHFINDING_AVAILABLE = True
+except (ImportError, AttributeError):
+    PATHFINDING_AVAILABLE = False
+
 
 class Ghost(Entity):
 
-    def __init__(self, center_position: Tuple, assets: Asset, frightened_assets: list, eaten_assets: Asset,
-                 blink_assets: list, player: Player,
-                 turns: Turns, space_params: SpaceParams, home_corner: Tuple, ghost_house_location: Tuple,
-                 ghost_house_exit: Tuple,
-                 velocity=DEFAULT_VELOCITY):
+    def __init__(
+        self,
+        center_position: Tuple,
+        assets: Asset,
+        frightened_assets: list,
+        eaten_assets: Asset,
+        blink_assets: list,
+        player: Player,
+        turns: Turns,
+        space_params: SpaceParams,
+        home_corner: Tuple,
+        ghost_house_location: Tuple,
+        ghost_house_exit: Tuple,
+        velocity=DEFAULT_VELOCITY,
+        use_pathfinding=False,
+    ):
         super().__init__(center_position, turns, space_params, velocity)
         # sprites
         self.assets = assets
@@ -27,8 +46,15 @@ class Ghost(Entity):
         # surrounding awareness
         self.player = player
         self.home_corner = self.__recalculate_to_screen_coordinates(home_corner)
-        self.ghost_house_location = self.__recalculate_to_screen_coordinates(ghost_house_location)
-        self.ghost_house_exit = self.__recalculate_to_screen_coordinates(ghost_house_exit)
+        self.ghost_house_location = self.__recalculate_to_screen_coordinates(
+            ghost_house_location
+        )
+        self.ghost_house_exit = self.__recalculate_to_screen_coordinates(
+            ghost_house_exit
+        )
+
+        # pathfinding toggle - students enable after implementing algorithm
+        self.use_pathfinding = use_pathfinding and PATHFINDING_AVAILABLE
 
         # initial state
         self.direction = Direction.UP
@@ -41,8 +67,12 @@ class Ghost(Entity):
         self.sprite_index = 0
 
     def __recalculate_to_screen_coordinates(self, board_coordinates):
-        return board_coordinates[0] * self.space_params.tile_width - self.space_params.tile_width // 2, \
-               board_coordinates[1] * self.space_params.tile_height + self.space_params.tile_height // 2
+        return (
+            board_coordinates[0] * self.space_params.tile_width
+            - self.space_params.tile_width // 2,
+            board_coordinates[1] * self.space_params.tile_height
+            + self.space_params.tile_height // 2,
+        )
 
     def reset_position(self):
         self.__set_to_chase()
@@ -51,8 +81,10 @@ class Ghost(Entity):
     def is_in_house(self):
         x = self.location_x // self.space_params.tile_width
         y = self.location_y // self.space_params.tile_height
-        return GHOST_HOUSE_COORDINATES_X[0] <= x <= GHOST_HOUSE_COORDINATES_X[1] \
+        return (
+            GHOST_HOUSE_COORDINATES_X[0] <= x <= GHOST_HOUSE_COORDINATES_X[1]
             and GHOST_HOUSE_COORDINATES_Y[0] <= y <= GHOST_HOUSE_COORDINATES_Y[1]
+        )
 
     def is_frightened(self):
         return self.state == self.State.FRIGHTENED
@@ -104,38 +136,52 @@ class Ghost(Entity):
 
         if self.is_chasing() or self.is_scatter():
             if self.direction == Direction.LEFT:
-                screen.blit(self.assets.left[self.sprite_index],
-                            (self.top_left_x, self.top_left_y))
+                screen.blit(
+                    self.assets.left[self.sprite_index],
+                    (self.top_left_x, self.top_left_y),
+                )
             elif self.direction == Direction.RIGHT:
-                screen.blit(self.assets.right[self.sprite_index],
-                            (self.top_left_x, self.top_left_y))
+                screen.blit(
+                    self.assets.right[self.sprite_index],
+                    (self.top_left_x, self.top_left_y),
+                )
             elif self.direction == Direction.UP:
-                screen.blit(self.assets.up[self.sprite_index],
-                            (self.top_left_x, self.top_left_y))
+                screen.blit(
+                    self.assets.up[self.sprite_index],
+                    (self.top_left_x, self.top_left_y),
+                )
             elif self.direction == Direction.DOWN:
-                screen.blit(self.assets.down[self.sprite_index],
-                            (self.top_left_x, self.top_left_y))
+                screen.blit(
+                    self.assets.down[self.sprite_index],
+                    (self.top_left_x, self.top_left_y),
+                )
 
         elif self.is_frightened():
             if self.player.powerup_counter < 3 * FPS:
-                screen.blit(self.blink_assets[self.sprite_index],
-                            (self.top_left_x, self.top_left_y))
+                screen.blit(
+                    self.blink_assets[self.sprite_index],
+                    (self.top_left_x, self.top_left_y),
+                )
             else:
-                screen.blit(self.frightened_assets[self.sprite_index],
-                                (self.top_left_x, self.top_left_y))
+                screen.blit(
+                    self.frightened_assets[self.sprite_index],
+                    (self.top_left_x, self.top_left_y),
+                )
         elif self.is_eaten():
             if self.direction == Direction.LEFT:
-                screen.blit(self.eaten_assets.left[0],
-                            (self.top_left_x, self.top_left_y))
+                screen.blit(
+                    self.eaten_assets.left[0], (self.top_left_x, self.top_left_y)
+                )
             elif self.direction == Direction.RIGHT:
-                screen.blit(self.eaten_assets.right[0],
-                            (self.top_left_x, self.top_left_y))
+                screen.blit(
+                    self.eaten_assets.right[0], (self.top_left_x, self.top_left_y)
+                )
             elif self.direction == Direction.UP:
-                screen.blit(self.eaten_assets.up[0],
-                            (self.top_left_x, self.top_left_y))
+                screen.blit(self.eaten_assets.up[0], (self.top_left_x, self.top_left_y))
             elif self.direction == Direction.DOWN:
-                screen.blit(self.eaten_assets.down[0],
-                            (self.top_left_x, self.top_left_y))
+                screen.blit(
+                    self.eaten_assets.down[0], (self.top_left_x, self.top_left_y)
+                )
 
     def change_direction_to_opposite(self):
         if self.direction == Direction.LEFT:
@@ -170,10 +216,18 @@ class Ghost(Entity):
         else:
             self.runaway = False
 
-        right_distance = self.calc_distance(self.location_x + self.space_params.tile_width, self.location_y)
-        left_distance = self.calc_distance(self.location_x - self.space_params.tile_width, self.location_y)
-        up_distance = self.calc_distance(self.location_x, self.location_y - self.space_params.tile_height)
-        down_distance = self.calc_distance(self.location_x, self.location_y + self.space_params.tile_height)
+        right_distance = self.calc_distance(
+            self.location_x + self.space_params.tile_width, self.location_y
+        )
+        left_distance = self.calc_distance(
+            self.location_x - self.space_params.tile_width, self.location_y
+        )
+        up_distance = self.calc_distance(
+            self.location_x, self.location_y - self.space_params.tile_height
+        )
+        down_distance = self.calc_distance(
+            self.location_x, self.location_y + self.space_params.tile_height
+        )
 
         right = right_distance, Direction.RIGHT, self.turns.right
         left = left_distance, Direction.LEFT, self.turns.left
@@ -194,16 +248,41 @@ class Ghost(Entity):
             self._move(next_turn)
 
     def calc_next_turn(self, possible_decisions):
-        prioritized = sorted(possible_decisions, key=lambda x: x[0], reverse=self.runaway)
+        prioritized = sorted(
+            possible_decisions, key=lambda x: x[0], reverse=self.runaway
+        )
         for i in range(len(prioritized)):
             if prioritized[i][2]:
                 return prioritized[i][1]
 
     def calc_distance(self, x, y):
+        """Calculate distance to target using Euclidean distance or pathfinding."""
+        if self.use_pathfinding and PATHFINDING_AVAILABLE:
+            # Use student-implemented pathfinding algorithm
+            current_tile = self._calc_tile_location(x, y)
+            target_pos = self.target()
+            target_tile = self._calc_tile_location(target_pos[0], target_pos[1])
+
+            try:
+                # Get actual path distance through the maze
+                path_distance = find_shortest_path(
+                    current_tile, target_tile, self.space_params.board_definition
+                )
+                if path_distance is not None:
+                    # Return the actual path length
+                    return path_distance
+            except Exception as e:
+                # Fall back to Euclidean if pathfinding fails
+                print(f"Pathfinding error: {e}")
+                pass
+
+        # Original Euclidean distance calculation
         target = self.target()
         target = self._calc_tile_location(target[0], target[1])
         self_location = self._calc_tile_location(x, y)
-        return math.pow((target[0] - self_location[0]), 2) + math.pow((target[1] - self_location[1]), 2)
+        return math.pow((target[0] - self_location[0]), 2) + math.pow(
+            (target[1] - self_location[1]), 2
+        )
 
     def _calc_tile_location(self, x, y):
         return x // self.space_params.tile_width, y // self.space_params.tile_height
@@ -219,52 +298,60 @@ class Ghost(Entity):
             if self.turns.left:
                 self._move_left()
             else:
-                self._snap_to_center(self.space_params.tile_width, self.space_params.tile_height)
+                self._snap_to_center(
+                    self.space_params.tile_width, self.space_params.tile_height
+                )
 
         if self.direction == Direction.RIGHT:
             if self.turns.right:
                 self._move_right()
             else:
-                self._snap_to_center(self.space_params.tile_width, self.space_params.tile_height)
+                self._snap_to_center(
+                    self.space_params.tile_width, self.space_params.tile_height
+                )
 
         if self.direction == Direction.DOWN:
             if self.turns.down:
                 self._move_down()
             else:
-                self._snap_to_center(self.space_params.tile_width, self.space_params.tile_height)
+                self._snap_to_center(
+                    self.space_params.tile_width, self.space_params.tile_height
+                )
         if self.direction == Direction.UP:
             if self.turns.up:
                 self._move_up()
             else:
-                self._snap_to_center(self.space_params.tile_width, self.space_params.tile_height)
+                self._snap_to_center(
+                    self.space_params.tile_width, self.space_params.tile_height
+                )
 
     def _check_borders_ahead(self):
         # Checks next cell based on current entity position and direction and
         # permits or prohibits to turn in certain direction depending on obstacles ahead
         x = self.location_x
         y = self.location_y
-        i = (y // self.space_params.tile_height)
+        i = y // self.space_params.tile_height
         j = ((x + DISTANCE_FACTOR) // self.space_params.tile_width) - 1
         if self._is_asle_ahead(i, j):
             self.turns.left = True
         else:
             self.turns.left = False
 
-        i = (y // self.space_params.tile_height)
+        i = y // self.space_params.tile_height
         j = ((x - DISTANCE_FACTOR) // self.space_params.tile_width) + 1
         if self._is_asle_ahead(i, j):
             self.turns.right = True
         else:
             self.turns.right = False
         i = ((y + DISTANCE_FACTOR) // self.space_params.tile_height) - 1
-        j = (x // self.space_params.tile_width)
+        j = x // self.space_params.tile_width
         if self._is_asle_ahead(i, j) or self.board[i][j] == 9:
             self.turns.up = True
         else:
             self.turns.up = False
 
         i = ((y - DISTANCE_FACTOR) // self.space_params.tile_height) + 1
-        j = (x // self.space_params.tile_width)
+        j = x // self.space_params.tile_width
         if self._is_asle_ahead(i, j) or (self.is_eaten() and self.board[i][j] == 9):
             self.turns.down = True
         else:

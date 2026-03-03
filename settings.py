@@ -1,8 +1,13 @@
+# fmt: off
 import numpy as np
 import pygame
 
 FPS = 60
 DEBUG = False
+
+# Enable student-implemented pathfinding algorithm (set to True after implementing it for MC2)
+USE_PATHFINDING = False
+
 RESOLUTION = WIDTH, HEIGHT = 900, 990
 DISTANCE_FACTOR = 10
 
@@ -52,8 +57,6 @@ GHOST_SPRITE_FREQUENCY = 10
 
 GHOST_EATEN_EVENT = pygame.USEREVENT + 1
 PLAYER_EATEN_EVENT = pygame.USEREVENT + 2
-
-
 
 # 0 = empty black rectangle, 1 = dot, 2 = big dot, 3 = vertical line,
 # 4 = horizontal line, 5 = top right, 6 = top left, 7 = bot left, 8 = bot right
