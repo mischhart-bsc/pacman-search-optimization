@@ -8,7 +8,7 @@ Example heap structure:
      / \   / \
     7   5 4   6
 
-Students will implement this data structure from scratch by using only primitive data structures.
+Students will implement this data structure from scratch.
 *** If 'heapq' is used, points will be deducted from the grade.
 
 Used for efficient pathfinding in the PacMan game (ghost AI) - in MC2.
