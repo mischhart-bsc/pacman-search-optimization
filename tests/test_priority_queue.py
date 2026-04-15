@@ -193,6 +193,19 @@ def test_extract_empty_queue():
     print("✓ test_extract_empty_queue passed")
 
 
+def test_plot_performance():
+    """Test that plot_performance runs without errors and displays the plot."""
+    pq = PriorityQueue()
+    
+    try:
+        # This will display the plot window
+        # Use small max_n (100) to keep test fast
+        pq.plot_performance(max_n=3000)
+        print("✓ test_plot_performance passed")
+    except Exception as e:
+        raise AssertionError(f"plot_performance failed: {e}")
+
+
 def run_all_tests():
     """Run all tests."""
     tests = [
@@ -205,6 +218,7 @@ def run_all_tests():
         test_heap_property,
         test_interleaved_operations,
         test_extract_empty_queue,
+        test_plot_performance,
     ]
     
     print("Running Priority Queue Tests...\n")

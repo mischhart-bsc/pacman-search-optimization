@@ -64,6 +64,10 @@ class PriorityQueue:
         Step 2: bubble_up from index 3 to restore min-heap property
         Result: [(1, A), (2, X), (3, C), (5, B)]  # 2 bubbled up
         """
+        assert isinstance(priority, (int, float)), "Priority must be a number"
+        assert priority >= 0, "Priority must be non-negative"
+        assert item is not None, "Item cannot be None"
+
         self.heap.append((item, priority))
         # Get the index of last element
         index = len(self.heap) - 1
@@ -116,77 +120,102 @@ class PriorityQueue:
         """Return number of items in queue."""
         return len(self.heap)
 
-    def plot_performance(self, max_n=1000):
+    def plot_performance(self, max_n=5000):
         """
-        Plot the time complexity of insert and extract_min operations.
+        Plot empirical runtime of insert and extract_min as a function
+        of heap size n.
 
-        Creates a graph showing time complexity behavior by:
-        1. Testing with increasing input sizes
-        2. Measuring time for insert and extract operations
-        3. Plotting actual time vs theoretical
+        For each heap size n:
+        - build a heap of size n
+        - measure one insert operation
+        - build a heap of size n
+        - measure one extract_min operation
+        - repeat several trials and average
 
-        Args:
-            max_n: Maximum number of elements to test
-
-        TODO: Student implementation
-        Hint: Use time measurements
-        Hint: Use matplotlib or a choice of yours for visualization
-        Hint: Compare to verify complexity
+        This gives a cleaner comparison with the theoretical O(log n) trend.
         """
         import time
         import random
         import math
         import matplotlib.pyplot as plt
 
-        # X-Axis = n Heap Size
-        # Y-Axis = time per operation
+        sizes = []
         insert_times = []
         extract_times = []
-        sizes = []
 
-        for n in range(1, max_n):
-            pq = PriorityQueue()
+        trials = 10
+        step = 200
 
-            # --- Measure Insert ---
-            start = time.perf_counter()
+        for n in range(100, max_n + 1, step):
+            trial_insert_times = []
+            trial_extract_times = []
 
-            for _ in range(n):
-                item = (random.randint(0,100), random.randint(0,100))
-                priority = random.randint(0,1000)
-                pq.insert(item,priority)
-            
-            end = time.perf_counter()
-            insert_time = (end - start) / n
+            for _ in range(trials):
+                # ---------- Measure insert on heap of size n ----------
+                data_insert = [
+                    ((random.randint(0, 100), random.randint(0, 100)),
+                    random.randint(0, 1000))
+                    for _ in range(n)
+                ]
 
-            # --- Measure Extract ---
-            start = time.perf_counter()
+                pq_insert = PriorityQueue()
+                for item, priority in data_insert:
+                    pq_insert.insert(item, priority)
 
-            for _ in range(n):
-                pq.extract_min()
-            
-            end = time.perf_counter()
-            extract_time = (end - start) / n
+                new_item = (random.randint(0, 100), random.randint(0, 100))
+                new_priority = random.randint(0, 1000)
+
+                start = time.perf_counter()
+                pq_insert.insert(new_item, new_priority)
+                end = time.perf_counter()
+
+                trial_insert_times.append(end - start)
+
+                # ---------- Measure extract_min on heap of size n ----------
+                data_extract = [
+                    ((random.randint(0, 100), random.randint(0, 100)),
+                    random.randint(0, 1000))
+                    for _ in range(n)
+                ]
+
+                pq_extract = PriorityQueue()
+                for item, priority in data_extract:
+                    pq_extract.insert(item, priority)
+
+                start = time.perf_counter()
+                pq_extract.extract_min()
+                end = time.perf_counter()
+
+                trial_extract_times.append(end - start)
+
+            avg_insert = sum(trial_insert_times) / trials
+            avg_extract = sum(trial_extract_times) / trials
 
             sizes.append(n)
-            insert_times.append(insert_time)
-            extract_times.append(extract_time)
-        
-        # --- Theoretical Curve O(log(n)) ---
+            insert_times.append(avg_insert)
+            extract_times.append(avg_extract)
+
+        # Theoretical log curves, scaled separately for visual comparison
         log_curve = [math.log(n) for n in sizes]
 
+        scale_insert = insert_times[-1] / log_curve[-1]
+        scale_extract = extract_times[-1] / log_curve[-1]
 
-        # --- Plot ---
-        plt.figure()
-        plt.plot(sizes, insert_times, label = "Insert (measured)")
-        plt.plot(sizes, extract_times, label = "Extract (measured)")
-        plt.plot(sizes, log_curve, label = "O(log n)")
+        scaled_log_insert = [scale_insert * x for x in log_curve]
+        scaled_log_extract = [scale_extract * x for x in log_curve]
 
-        plt.xlabel("Number of elements (n)")
-        plt.ylabel("Time per operation (seconds)")
-        plt.title("Heap Operation Time Complexity")
+        # Plot
+        plt.figure(figsize=(10, 6))
+        plt.plot(sizes, insert_times, label="Insert (measured)")
+        plt.plot(sizes, extract_times, label="Extract min (measured)")
+        plt.plot(sizes, scaled_log_insert, label="Scaled log(n) for insert")
+        plt.plot(sizes, scaled_log_extract, label="Scaled log(n) for extract")
 
+        plt.xlabel("Heap size before operation (n)")
+        plt.ylabel("Average time per operation (seconds)")
+        plt.title("Priority Queue Heap Performance")
         plt.legend()
-        plt.grid()
+        plt.grid(True)
         plt.show()
         
 
@@ -263,3 +292,34 @@ class PriorityQueue:
             self._swap(index, smallest)
             index = smallest
 
+    # ========== Additional Utility Methods ==========
+    
+    def peek_min(self):
+        """Return item with minimum priority without removing it"""
+        if self.empty():
+            raise "Error"
+        else:
+            return self.heap[0][0]
+        
+    def decrease_priority(self, item, new_priority):
+        """Decrease priority of a given item (if it exists) and restore heap property."""
+        # find the item in the heap
+        index = -1
+        for i, (stored_item, priority) in enumerate(self.heap):
+            if stored_item == item:
+                index = i
+                break
+
+        if index == -1:
+            raise ValueError(f"Item {item} not found in queue")
+        
+        # Update old priority
+        old_priority = self.heap[index][1]
+        if new_priority >= old_priority:
+            raise ValueError("New priority must be lower than current")
+        
+        self.heap[index] = (item, new_priority)
+
+        # Bubble Up because lower priority
+        self._bubble_up(index)
+        
