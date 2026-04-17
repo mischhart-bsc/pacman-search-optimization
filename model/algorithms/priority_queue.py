@@ -23,7 +23,7 @@ class PriorityQueue:
         so you always get the "most urgent" item first.
 
     HEAP PROPERTY EXAMPLE:
-    [(1, 'A'), (3, 'B'), (2, 'C'), (7, 'D'), (5, 'E')]
+    [('A', 1), ('B', 3), ('C', 2), ('D', 7), ('E', 5)]
     Priority 1 (root) < Priority 3 and 2 (children) ✓
     Priority 3 < Priority 7 and 5 (its children) ✓
 
@@ -38,11 +38,11 @@ class PriorityQueue:
         Initialize the priority queue with an empty heap.
 
         TODO: Student implementation
-        Hint: self.heap = []  # Store (priority, item) tuples
+        Hint: self.heap = []  # Store (item, priority) tuples
 
         The heap list represents a complete binary tree.
         Example after insertions:
-        self.heap = [(1, 'low'), (5, 'med'), (3, 'high')]
+        self.heap = [('low', 1), ('med', 3), ('high', 5)]
         """
         self.heap = []
 
@@ -56,7 +56,7 @@ class PriorityQueue:
 
         TODO: Student implementation
         ALGORITHM:
-        1. Append (priority, item) tuple to end of heap array
+        1. Append (item, priority) tuple to end of heap array
         2. Call _bubble_up() on the last index to restore heap property
 
         EXAMPLE: Insert (X, priority=2) into heap [(1, A), (5, B), (3, C)]
@@ -144,30 +144,30 @@ class PriorityQueue:
         extract_times = []
 
         trials = 10
-        step = 200
 
-        for n in range(100, max_n + 1, step):
+        for n in range(100, max_n + 1):
+
             trial_insert_times = []
             trial_extract_times = []
-
+            
             for _ in range(trials):
                 # ---------- Measure insert on heap of size n ----------
+                pq_insert = PriorityQueue()
+
                 data_insert = [
                     ((random.randint(0, 100), random.randint(0, 100)),
                     random.randint(0, 1000))
                     for _ in range(n)
                 ]
-
-                pq_insert = PriorityQueue()
                 for item, priority in data_insert:
                     pq_insert.insert(item, priority)
 
                 new_item = (random.randint(0, 100), random.randint(0, 100))
                 new_priority = random.randint(0, 1000)
 
-                start = time.perf_counter()
+                start = time.perf_counter_ns()
                 pq_insert.insert(new_item, new_priority)
-                end = time.perf_counter()
+                end = time.perf_counter_ns()
 
                 trial_insert_times.append(end - start)
 
@@ -182,9 +182,9 @@ class PriorityQueue:
                 for item, priority in data_extract:
                     pq_extract.insert(item, priority)
 
-                start = time.perf_counter()
+                start = time.perf_counter_ns()
                 pq_extract.extract_min()
-                end = time.perf_counter()
+                end = time.perf_counter_ns()
 
                 trial_extract_times.append(end - start)
 
@@ -212,7 +212,7 @@ class PriorityQueue:
         plt.plot(sizes, scaled_log_extract, label="Scaled log(n) for extract")
 
         plt.xlabel("Heap size before operation (n)")
-        plt.ylabel("Average time per operation (seconds)")
+        plt.ylabel("Average time per operation (ns)")
         plt.title("Priority Queue Heap Performance")
         plt.legend()
         plt.grid(True)
@@ -296,8 +296,8 @@ class PriorityQueue:
     
     def peek_min(self):
         """Return item with minimum priority without removing it"""
-        if self.empty():
-            raise "Error"
+        if self.is_empty():
+            raise IndexError("Priority queue ist empty")
         else:
             return self.heap[0][0]
         
@@ -322,4 +322,185 @@ class PriorityQueue:
 
         # Bubble Up because lower priority
         self._bubble_up(index)
-        
+
+
+    def plot_performance_batches(self, max_n=5000, step=100, trials=25, batch_size=300):
+        """
+        Empirical benchmark for insert and extract_min.
+
+        Method:
+        - For each heap size n:
+            1. Build a random heap of size n
+            2. Copy that heap for each trial
+            3. Measure a batch of insert operations
+            4. Measure a batch of extract_min operations
+            5. Repeat for several trials
+        - Report median time per operation
+        - Also plot time / log2(n) to assess O(log n) behaviour
+
+        Notes:
+        - Batch timing reduces measurement noise from Python overhead
+        - Median is more robust than mean for noisy timing data
+        - Percentile bands show variability across trials
+        """
+        import time
+        import random
+        import math
+        import statistics
+        import matplotlib.pyplot as plt
+
+        sizes = []
+
+        insert_median = []
+        extract_median = []
+
+        insert_p25 = []
+        insert_p75 = []
+
+        extract_p25 = []
+        extract_p75 = []
+
+        insert_norm = []
+        extract_norm = []
+
+        insert_norm_p25 = []
+        insert_norm_p75 = []
+
+        extract_norm_p25 = []
+        extract_norm_p75 = []
+
+        def percentile(sorted_data, p):
+            """
+            Simple percentile function.
+            p should be between 0 and 1.
+            """
+            if not sorted_data:
+                return None
+            k = (len(sorted_data) - 1) * p
+            f = int(math.floor(k))
+            c = int(math.ceil(k))
+            if f == c:
+                return sorted_data[f]
+            return sorted_data[f] + (sorted_data[c] - sorted_data[f]) * (k - f)
+
+        for n in range(100, max_n + 1, step):
+            insert_trial_times = []
+            extract_trial_times = []
+
+            # Build one base heap of size n
+            base_data = [
+                ((random.randint(0, 100), random.randint(0, 100)),
+                random.randint(0, 100000))
+                for _ in range(n)
+            ]
+
+            base_pq = PriorityQueue()
+            for item, priority in base_data:
+                base_pq.insert(item, priority)
+
+            for _ in range(trials):
+                # -------------------------
+                # Measure insert batch
+                # -------------------------
+                pq_insert = PriorityQueue()
+                pq_insert.heap = base_pq.heap.copy()
+
+                insert_batch = [
+                    ((random.randint(0, 100), random.randint(0, 100)),
+                    random.randint(0, 100000))
+                    for _ in range(batch_size)
+                ]
+
+                start = time.perf_counter_ns()
+                for item, priority in insert_batch:
+                    pq_insert.insert(item, priority)
+                end = time.perf_counter_ns()
+
+                avg_insert_time = (end - start) / batch_size
+                insert_trial_times.append(avg_insert_time)
+
+                # -------------------------
+                # Measure extract batch
+                # -------------------------
+                pq_extract = PriorityQueue()
+                pq_extract.heap = base_pq.heap.copy()
+
+                # Do not extract more than available
+                extract_ops = min(batch_size, len(pq_extract.heap))
+
+                start = time.perf_counter_ns()
+                for _ in range(extract_ops):
+                    pq_extract.extract_min()
+                end = time.perf_counter_ns()
+
+                avg_extract_time = (end - start) / extract_ops
+                extract_trial_times.append(avg_extract_time)
+
+            # Sort trial data for percentile calculation
+            insert_trial_times.sort()
+            extract_trial_times.sort()
+
+            ins_med = statistics.median(insert_trial_times)
+            ext_med = statistics.median(extract_trial_times)
+
+            ins_p25 = percentile(insert_trial_times, 0.25)
+            ins_p75 = percentile(insert_trial_times, 0.75)
+
+            ext_p25 = percentile(extract_trial_times, 0.25)
+            ext_p75 = percentile(extract_trial_times, 0.75)
+
+            logn = math.log2(n)
+
+            sizes.append(n)
+
+            insert_median.append(ins_med)
+            extract_median.append(ext_med)
+
+            insert_p25.append(ins_p25)
+            insert_p75.append(ins_p75)
+
+            extract_p25.append(ext_p25)
+            extract_p75.append(ext_p75)
+
+            insert_norm.append(ins_med / logn)
+            extract_norm.append(ext_med / logn)
+
+            insert_norm_p25.append(ins_p25 / logn)
+            insert_norm_p75.append(ins_p75 / logn)
+
+            extract_norm_p25.append(ext_p25 / logn)
+            extract_norm_p75.append(ext_p75 / logn)
+
+        # ==========================================
+        # Plot 1: raw median runtime per operation
+        # ==========================================
+        plt.figure(figsize=(10, 6))
+        plt.plot(sizes, insert_median, label="Insert median time/op")
+        plt.plot(sizes, extract_median, label="Extract_min median time/op")
+
+        plt.fill_between(sizes, insert_p25, insert_p75, alpha=0.2)
+        plt.fill_between(sizes, extract_p25, extract_p75, alpha=0.2)
+
+        plt.xlabel("Heap size n")
+        plt.ylabel("Time per operation (ns)")
+        plt.title("Priority Queue Performance: Raw Runtime")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+        # ==========================================
+        # Plot 2: runtime normalised by log2(n)
+        # ==========================================
+        plt.figure(figsize=(10, 6))
+        plt.plot(sizes, insert_norm, label="Insert / log2(n)")
+        plt.plot(sizes, extract_norm, label="Extract_min / log2(n)")
+
+        plt.fill_between(sizes, insert_norm_p25, insert_norm_p75, alpha=0.2)
+        plt.fill_between(sizes, extract_norm_p25, extract_norm_p75, alpha=0.2)
+
+        plt.xlabel("Heap size n")
+        plt.ylabel("Time per operation divided by log2(n)")
+        plt.title("Priority Queue Performance: Normalised by log2(n)")
+        plt.legend()
+        plt.grid(True)
+        plt.show()

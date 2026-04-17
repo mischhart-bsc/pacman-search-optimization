@@ -204,6 +204,18 @@ def test_plot_performance():
         print("✓ test_plot_performance passed")
     except Exception as e:
         raise AssertionError(f"plot_performance failed: {e}")
+    
+def test_plot_performance_batches():
+    """Test that plot_performance runs without errors and displays the plot."""
+    pq = PriorityQueue()
+    
+    try:
+        # This will display the plot window
+        # Use small max_n (100) to keep test fast
+        pq.plot_performance_batches(max_n=3000)
+        print("✓ test_plot_performance_batches passed")
+    except Exception as e:
+        raise AssertionError(f"plot_performance_batches failed: {e}")
 
 
 def run_all_tests():
@@ -219,6 +231,7 @@ def run_all_tests():
         test_interleaved_operations,
         test_extract_empty_queue,
         test_plot_performance,
+        test_plot_performance_batches
     ]
     
     print("Running Priority Queue Tests...\n")
