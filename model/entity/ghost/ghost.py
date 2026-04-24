@@ -12,7 +12,7 @@ from settings import *
 # Students can enable pathfinding after implementing it for MC2
 try:
     from model.algorithms.pathfinding import find_shortest_path
-
+    
     PATHFINDING_AVAILABLE = True
 except (ImportError, AttributeError):
     PATHFINDING_AVAILABLE = False

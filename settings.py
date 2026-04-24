@@ -6,7 +6,7 @@ FPS = 60
 DEBUG = False
 
 # Enable student-implemented pathfinding algorithm (set to True after implementing it for MC2)
-USE_PATHFINDING = False
+USE_PATHFINDING = True
 
 RESOLUTION = WIDTH, HEIGHT = 900, 990
 DISTANCE_FACTOR = 10

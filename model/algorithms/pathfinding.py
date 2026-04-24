@@ -7,6 +7,7 @@ Students will implement shortest path algorithms using their PriorityQueue.
 from typing import Tuple, List, Optional
 from model.algorithms.priority_queue import PriorityQueue
 from model.board_structure import BoardStructure
+import numpy as np
 
 
 def find_shortest_path(
@@ -48,7 +49,58 @@ def find_shortest_path(
 
     Hint: Use get_valid_neighbors() to find walkable adjacent tiles
     """
-    pass
+
+    # Dijkstra's Algorithm approach
+    ## Every walkable tile is a node
+    ## weight between neighbours is 1
+
+    # Initialize known_distance storer
+    pq = PriorityQueue()
+
+    # Only known distance from the start
+    pq.insert(start, priority=0)
+
+    distances = {start: 0}
+    visited = set()
+    previous = {}
+
+    while not pq.is_empty():
+
+        # extract point with minimal distance from start
+        (current, current_distance) = pq.extract_min()
+
+        if current_distance > max_search_distance:
+            break
+
+        if current in visited:
+            continue
+        
+        # added that we know minimal distance 
+        visited.add(current)
+
+        if current == goal:
+            break
+        
+        for neighbour in get_valid_neighbors(current, board_definition):
+
+            if neighbour in visited:
+                continue
+
+            new_distance = current_distance + 1
+
+            if neighbour not in distances or (new_distance < distances[neighbour]):
+                distances[neighbour] = new_distance
+                previous[neighbour] = current
+
+                pq.insert(neighbour, new_distance)
+            
+    if current != goal:
+        return None
+    
+    # recreate path
+    # path = reconstruct_path(previous, start, goal)
+
+    return distances[goal]
 
 
 def get_valid_neighbors(
@@ -69,7 +121,21 @@ def get_valid_neighbors(
     Hint: Check 4 directions (up, down, left, right)
     Hint: Use is_wall() to check if position is walkable
     """
-    pass
+    valid = []
+    x, y = position
+
+    neighbours = [
+        (x + 1, y),
+        (x, y + 1),
+        (x - 1, y),
+        (x, y - 1)
+    ]
+
+    for nx, ny in neighbours:
+        if not is_wall(nx, ny, board_definition):
+            valid.append((nx, ny))
+    
+    return valid
 
 
 def is_wall(x: int, y: int, board_definition) -> bool:
@@ -89,7 +155,15 @@ def is_wall(x: int, y: int, board_definition) -> bool:
     Hint: Check board_definition.board[y][x] against BoardStructure enum values
     Hint: VERTICAL_WALL, HORIZONTAL_WALL, and corner types are walls
     """
-    pass
+    board = board_definition.board
+    rows, cols = np.shape(board)
+
+    if x < 0 or x >= cols or y < 0 or y >= rows:
+        return True
+
+    # 0-2 walkable, 3-8 not and 9 is the gate
+    tile = board[y][x]
+    return 3 <= tile <= 8
 
 
 def reconstruct_path(
@@ -106,7 +180,17 @@ def reconstruct_path(
     Returns:
         Path from start to goal [start, ..., goal]
     """
-    pass
+    path = []
+    current = goal
+
+    while current != start:
+        path.append(current)
+        current = came_from[current]
+
+    path.append(start)
+    path.reverse()
+
+    return path
 
 
 # ==================== OPTIONAL: A* Algorithm ====================
