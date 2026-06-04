@@ -2,6 +2,12 @@
 Pathfinding algorithms for ghost AI navigation (MC2).
 
 Students will implement shortest path algorithms using their PriorityQueue.
+
+Adaptions:
+ghost.py:
+ 219
+ Added Cache for Shortest Path (69)
+ follow_target(self)
 """
 
 from typing import Tuple, List, Optional
@@ -30,7 +36,7 @@ def find_shortest_path(
         max_search_distance: Maximum distance to search (prevents infinite loops)
 
     Returns:
-        Path distance (number of steps) from start to goal, or None if no path found
+        Path distance (number of steps) from start to goal, or None if no path found & Path to follow
 
     TODO: Student implementation
 
@@ -98,9 +104,10 @@ def find_shortest_path(
         return None
     
     # recreate path
-    # path = reconstruct_path(previous, start, goal)
+    path = reconstruct_path(previous, start, goal)
+    distance = distances[goal]
 
-    return distances[goal]
+    return (distance, path)
 
 
 def get_valid_neighbors(

@@ -66,6 +66,12 @@ class Ghost(Entity):
         self.sprite_counter = 0
         self.sprite_index = 0
 
+        # pathfinding cache (MC2)
+        self.cached_path : list = [] # Path as [(Tile x, Tile y), ... ]
+        self.path_index : int = 0 # next step in path
+        self.last_tile = None # tile position on last Shortest Path Call
+        self.last_target_tile = None # target tile on last Shortest Path Call
+
     def __recalculate_to_screen_coordinates(self, board_coordinates):
         return (
             board_coordinates[0] * self.space_params.tile_width
@@ -103,16 +109,19 @@ class Ghost(Entity):
             self.__set_to_chase()
 
     def __set_to_chase(self):
+        self.cached_path = [] # Cache Reset
         self.velocity = DEFAULT_VELOCITY
         self.state = self.State.CHASE
 
     def set_to_frightened(self):
+        self.cached_path = [] # Cache Reset
         if not self.is_eaten():
             self.change_direction_to_opposite()
             self.velocity = SLOW_VELOCITY
             self.state = self.State.FRIGHTENED
 
     def set_to_scatter(self):
+        self.cached_path = [] # Cache Reset
         if not self.is_eaten():
             self.velocity = DEFAULT_VELOCITY
             self.state = self.State.SCATTER
@@ -216,6 +225,47 @@ class Ghost(Entity):
         else:
             self.runaway = False
 
+        ### changes for distance_method
+        ### do just one check (not every direction) if Path_finding is True
+        # Pathfinding Mode:
+        if self.use_pathfinding and PATHFINDING_AVAILABLE and not self.runaway and not self.is_eaten() and not self.is_in_house():
+            current_tile = self._calc_tile_location(self.location_x, self.location_y)
+            target_pos = self.target()
+            target_tile = self._calc_tile_location(target_pos[0], target_pos[1])
+
+            # Recalibration instances
+            tile_changed = (current_tile != self.last_tile)
+            path_exhausted = not self.cached_path or self.path_index >= len(self.cached_path)
+            target_moved = target_tile != self.last_target_tile
+
+            if tile_changed or path_exhausted or target_moved:
+                result = find_shortest_path(
+                    current_tile, target_tile, self.space_params.board_definition
+                )
+                if result is not None:
+                    _, self.cached_path = result
+                    self.path_index = 1
+                    self.last_target_tile = target_tile
+                else:
+                    self.cached_path = [] # -> Euclidean fallback
+                self.last_tile = current_tile
+            
+            if self.cached_path and self.path_index < len(self.cached_path):
+                next_tile = self.cached_path[self.path_index]
+                dx = next_tile[0] - current_tile[0]
+                dy = next_tile[1] - current_tile[1]
+
+                if dx == 1: direction = Direction.RIGHT
+                elif dx == -1: direction = Direction.LEFT
+                elif dy == 1: direction = Direction.DOWN
+                elif dy == -1: direction = Direction.UP
+                else:          direction = self.direction
+
+                self._move(direction)
+                return # end of this frame: no fallback to eucl.
+
+
+        # Euclidean fallback: unchanged
         right_distance = self.calc_distance(
             self.location_x + self.space_params.tile_width, self.location_y
         )
@@ -256,26 +306,7 @@ class Ghost(Entity):
                 return prioritized[i][1]
 
     def calc_distance(self, x, y):
-        """Calculate distance to target using Euclidean distance or pathfinding."""
-        if self.use_pathfinding and PATHFINDING_AVAILABLE:
-            # Use student-implemented pathfinding algorithm
-            current_tile = self._calc_tile_location(x, y)
-            target_pos = self.target()
-            target_tile = self._calc_tile_location(target_pos[0], target_pos[1])
-
-            try:
-                # Get actual path distance through the maze
-                path_distance = find_shortest_path(
-                    current_tile, target_tile, self.space_params.board_definition
-                )
-                if path_distance is not None:
-                    # Return the actual path length
-                    return path_distance
-            except Exception as e:
-                # Fall back to Euclidean if pathfinding fails
-                print(f"Pathfinding error: {e}")
-                pass
-
+        """Calculate distance to target using Euclidean distance and not pathfinding"""
         # Original Euclidean distance calculation
         target = self.target()
         target = self._calc_tile_location(target[0], target[1])
