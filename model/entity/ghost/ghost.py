@@ -71,6 +71,7 @@ class Ghost(Entity):
         self.path_index : int = 0 # next step in path
         self.last_tile = None # tile position on last Shortest Path Call
         self.last_target_tile = None # target tile on last Shortest Path Call
+        self.locked_in_house: bool = False # Lock ghosts in house after all_dots_eaten state
 
     def __recalculate_to_screen_coordinates(self, board_coordinates):
         return (
@@ -81,6 +82,7 @@ class Ghost(Entity):
         )
 
     def reset_position(self):
+        self.locked_in_house = False # In case game restarts
         self.__set_to_chase()
         super().reset_position()
 
@@ -127,6 +129,8 @@ class Ghost(Entity):
             self.state = self.State.SCATTER
 
     def set_to_eaten(self):
+        self.cached_path = []
+        self.path_index = 0
         delay = self.sfx.ghost_eaten.get_length()
         self.sfx.ghost_eaten.play()
         pygame.time.set_timer(GHOST_EATEN_EVENT, int(delay * 1000), True)
@@ -205,7 +209,10 @@ class Ghost(Entity):
     def follow_target(self):
         self._check_borders_ahead()
         if self.is_eaten() and self.is_in_house():
-            self.__set_to_chase()
+            if not self.locked_in_house:
+                self.__set_to_chase()
+            else:
+                return # stays locked
 
         if self.is_scatter():
             if self.scatter_counter_duration == SCATTER_DISABLE_TRIGGER:
@@ -231,38 +238,42 @@ class Ghost(Entity):
         if self.use_pathfinding and PATHFINDING_AVAILABLE and not self.runaway and not self.is_eaten() and not self.is_in_house():
             current_tile = self._calc_tile_location(self.location_x, self.location_y)
             target_pos = self.target()
-            target_tile = self._calc_tile_location(target_pos[0], target_pos[1])
+            if target_pos is None:
+                # fallback to eucl.
+                pass # no return 
+            else:
+                target_tile = self._calc_tile_location(target_pos[0], target_pos[1])
 
-            # Recalibration instances
-            tile_changed = (current_tile != self.last_tile)
-            path_exhausted = not self.cached_path or self.path_index >= len(self.cached_path)
-            target_moved = target_tile != self.last_target_tile
+                # Recalibration instances
+                tile_changed = (current_tile != self.last_tile)
+                path_exhausted = not self.cached_path or self.path_index >= len(self.cached_path)
+                target_moved = target_tile != self.last_target_tile
 
-            if tile_changed or path_exhausted or target_moved:
-                result = find_shortest_path(
-                    current_tile, target_tile, self.space_params.board_definition
-                )
-                if result is not None:
-                    _, self.cached_path = result
-                    self.path_index = 1
-                    self.last_target_tile = target_tile
-                else:
-                    self.cached_path = [] # -> Euclidean fallback
-                self.last_tile = current_tile
-            
-            if self.cached_path and self.path_index < len(self.cached_path):
-                next_tile = self.cached_path[self.path_index]
-                dx = next_tile[0] - current_tile[0]
-                dy = next_tile[1] - current_tile[1]
+                if tile_changed or path_exhausted or target_moved:
+                    result = find_shortest_path(
+                        current_tile, target_tile, self.space_params.board_definition
+                    )
+                    if result is not None:
+                        _, self.cached_path = result
+                        self.path_index = 1
+                        self.last_target_tile = target_tile
+                    else:
+                        self.cached_path = [] # -> Euclidean fallback
+                    self.last_tile = current_tile
+                
+                if self.cached_path and self.path_index < len(self.cached_path):
+                    next_tile = self.cached_path[self.path_index]
+                    dx = next_tile[0] - current_tile[0]
+                    dy = next_tile[1] - current_tile[1]
 
-                if dx == 1: direction = Direction.RIGHT
-                elif dx == -1: direction = Direction.LEFT
-                elif dy == 1: direction = Direction.DOWN
-                elif dy == -1: direction = Direction.UP
-                else:          direction = self.direction
+                    if dx == 1: direction = Direction.RIGHT
+                    elif dx == -1: direction = Direction.LEFT
+                    elif dy == 1: direction = Direction.DOWN
+                    elif dy == -1: direction = Direction.UP
+                    else:          direction = self.direction
 
-                self._move(direction)
-                return # end of this frame: no fallback to eucl.
+                    self._move(direction)
+                    return # end of this frame: no fallback to eucl.
 
 
         # Euclidean fallback: unchanged
@@ -309,6 +320,8 @@ class Ghost(Entity):
         """Calculate distance to target using Euclidean distance and not pathfinding"""
         # Original Euclidean distance calculation
         target = self.target()
+        if target is None:
+            return float('inf')
         target = self._calc_tile_location(target[0], target[1])
         self_location = self._calc_tile_location(x, y)
         return math.pow((target[0] - self_location[0]), 2) + math.pow(

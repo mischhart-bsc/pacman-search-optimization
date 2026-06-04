@@ -61,8 +61,8 @@ class Game:
         self.game_start_sfx.play()
         while True:
             self.check_events()
-            self.update()
             self.draw()
+            self.update()
 
 
 if __name__ == "__main__":

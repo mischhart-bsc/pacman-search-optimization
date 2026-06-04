@@ -7,8 +7,9 @@ DEBUG = False
 
 # Enable student-implemented pathfinding algorithm (set to True after implementing it for MC2)
 USE_PATHFINDING = True
+PATHFINDING_ALGORITHM = "a_star"  # "dijkstra" or "a_star"
 
-RESOLUTION = WIDTH, HEIGHT = 900, 990
+RESOLUTION = WIDTH, HEIGHT = 900, 900
 DISTANCE_FACTOR = 10
 
 SPRITE_SIZE = 45, 45

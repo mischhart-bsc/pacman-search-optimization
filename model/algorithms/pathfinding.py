@@ -15,8 +15,100 @@ from model.algorithms.priority_queue import PriorityQueue
 from model.board_structure import BoardStructure
 import numpy as np
 
+# ======================= Helper functions =======================
 
-def find_shortest_path(
+def get_valid_neighbors(
+    position: Tuple[int, int], board_definition
+) -> List[Tuple[int, int]]:
+    """
+    Get all valid (non-wall) neighboring positions.
+
+    Args:
+        position: Current tile position (x, y)
+        board_definition: BoardDefinition object with board layout
+
+    Returns:
+        List of valid neighbor positions [(x, y), ...]
+
+    TODO: Student implementation
+
+    Hint: Check 4 directions (up, down, left, right)
+    Hint: Use is_wall() to check if position is walkable
+    """
+    valid = []
+    x, y = position
+
+    neighbours = [
+        (x + 1, y),
+        (x, y + 1),
+        (x - 1, y),
+        (x, y - 1)
+    ]
+
+    for nx, ny in neighbours:
+        if not is_wall(nx, ny, board_definition):
+            valid.append((nx, ny))
+    
+    return valid
+
+
+def is_wall(x: int, y: int, board_definition) -> bool:
+    """
+    Check if given tile coordinate is a wall.
+
+    Args:
+        x: Tile x coordinate
+        y: Tile y coordinate
+        board_definition: BoardDefinition object
+
+    Returns:
+        True if wall, False if walkable
+
+    TODO: Student implementation
+
+    Hint: Check board_definition.board[y][x] against BoardStructure enum values
+    Hint: VERTICAL_WALL, HORIZONTAL_WALL, and corner types are walls
+    """
+    board = board_definition.board
+    rows, cols = np.shape(board)
+
+    if x < 0 or x >= cols or y < 0 or y >= rows:
+        return True
+
+    # 0-2 walkable, 3-8 not and 9 is the gate
+    tile = board[y][x]
+    return 3 <= tile <= 8
+
+
+def reconstruct_path(
+    came_from: dict, start: Tuple[int, int], goal: Tuple[int, int]
+) -> List[Tuple[int, int]]:
+    """
+    Reconstruct path from goal to start using parent dictionary.
+
+    Args:
+        came_from: Dictionary mapping each node to its parent {node: parent}
+        start: Starting position
+        goal: Goal position
+
+    Returns:
+        Path from start to goal [start, ..., goal]
+    """
+    path = []
+    current = goal
+
+    while current != start:
+        path.append(current)
+        current = came_from[current]
+
+    path.append(start)
+    path.reverse()
+
+    return path
+
+# ==================== Dijkstra Algorithm ====================
+
+def dijkstra_pathfinding(
     start: Tuple[int, int],
     goal: Tuple[int, int],
     board_definition,
@@ -110,97 +202,7 @@ def find_shortest_path(
     return (distance, path)
 
 
-def get_valid_neighbors(
-    position: Tuple[int, int], board_definition
-) -> List[Tuple[int, int]]:
-    """
-    Get all valid (non-wall) neighboring positions.
-
-    Args:
-        position: Current tile position (x, y)
-        board_definition: BoardDefinition object with board layout
-
-    Returns:
-        List of valid neighbor positions [(x, y), ...]
-
-    TODO: Student implementation
-
-    Hint: Check 4 directions (up, down, left, right)
-    Hint: Use is_wall() to check if position is walkable
-    """
-    valid = []
-    x, y = position
-
-    neighbours = [
-        (x + 1, y),
-        (x, y + 1),
-        (x - 1, y),
-        (x, y - 1)
-    ]
-
-    for nx, ny in neighbours:
-        if not is_wall(nx, ny, board_definition):
-            valid.append((nx, ny))
-    
-    return valid
-
-
-def is_wall(x: int, y: int, board_definition) -> bool:
-    """
-    Check if given tile coordinate is a wall.
-
-    Args:
-        x: Tile x coordinate
-        y: Tile y coordinate
-        board_definition: BoardDefinition object
-
-    Returns:
-        True if wall, False if walkable
-
-    TODO: Student implementation
-
-    Hint: Check board_definition.board[y][x] against BoardStructure enum values
-    Hint: VERTICAL_WALL, HORIZONTAL_WALL, and corner types are walls
-    """
-    board = board_definition.board
-    rows, cols = np.shape(board)
-
-    if x < 0 or x >= cols or y < 0 or y >= rows:
-        return True
-
-    # 0-2 walkable, 3-8 not and 9 is the gate
-    tile = board[y][x]
-    return 3 <= tile <= 8
-
-
-def reconstruct_path(
-    came_from: dict, start: Tuple[int, int], goal: Tuple[int, int]
-) -> List[Tuple[int, int]]:
-    """
-    Reconstruct path from goal to start using parent dictionary.
-
-    Args:
-        came_from: Dictionary mapping each node to its parent {node: parent}
-        start: Starting position
-        goal: Goal position
-
-    Returns:
-        Path from start to goal [start, ..., goal]
-    """
-    path = []
-    current = goal
-
-    while current != start:
-        path.append(current)
-        current = came_from[current]
-
-    path.append(start)
-    path.reverse()
-
-    return path
-
-
-# ==================== OPTIONAL: A* Algorithm ====================
+# ==================== A* Algorithm ====================
 
 
 def manhattan_distance(pos1: Tuple[int, int], pos2: Tuple[int, int]) -> int:
@@ -211,11 +213,11 @@ def manhattan_distance(pos1: Tuple[int, int], pos2: Tuple[int, int]) -> int:
 
     TODO: Optional to implement, to be used with A* algorithm.
     """
-    pass
+    return abs(pos2[0] - pos1[0]) + abs(pos2[1] - pos1[1])
 
 
 def a_star_pathfinding(
-    start: Tuple[int, int], goal: Tuple[int, int], board_definition
+    start: Tuple[int, int], goal: Tuple[int, int], board_definition, max_search_distance: int = 100,
 ) -> Optional[int]:
     """
     A* pathfinding algorithm:
@@ -233,46 +235,74 @@ def a_star_pathfinding(
     Hint: Use manhattan_distance() as heuristic function
     Hint: Return g_score[goal] when goal is reached
     """
-    pass
+    # Initialize known_distance storer
+    pq = PriorityQueue()
+
+    # Only known distance from the start
+    pq.insert(start, priority=0)
+
+    distances = {start: 0}
+    visited = set()
+    previous = {}
+
+    while not pq.is_empty():
+
+        # extract point with minimal distance from start
+        current, _ = pq.extract_min()
+
+        if distances[current] > max_search_distance:
+            break
+
+        if current in visited:
+            continue
+        
+        # added that we know minimal distance 
+        visited.add(current)
+
+        if current == goal:
+            break
+        
+        for neighbour in get_valid_neighbors(current, board_definition):
+
+            if neighbour in visited:
+                continue
+
+            new_distance = distances[current] + 1
+
+            if neighbour not in distances or (new_distance < distances[neighbour]):
+                distances[neighbour] = new_distance
+                previous[neighbour] = current
+
+                h = manhattan_distance(neighbour, goal)
+                pq.insert(neighbour, new_distance + h)
+            
+    if current != goal:
+        return None
+    
+    # recreate path
+    path = reconstruct_path(previous, start, goal)
+    distance = distances[goal]
+
+    return (distance, path)
 
 
-# ==================== Integration Helper ====================
+# ==================== Algorithm Choice =====================
 
 
-def get_next_direction_towards_target(
-    current_pos: Tuple[int, int],
-    target_pos: Tuple[int, int],
-    board_definition,
-    tile_width: int,
-    tile_height: int,
-):
-    """
-    Helper function to integrate pathfinding with Ghost.follow_target() method.
+_ALGORITHMS = {
+    "dijkstra": dijkstra_pathfinding,
+    "a_star":   a_star_pathfinding,
+}
 
-    Converts pixel coordinates to tile coordinates, finds path, converts back.
-
-    Args:
-        current_pos: Current position in pixels (x, y)
-        target_pos: Target position in pixels (x, y)
-        board_definition: BoardDefinition object
-        tile_width: Width of one tile in pixels
-        tile_height: Height of one tile in pixels
-
-    Returns:
-        Next position in pixels (x, y), or None
-
-    This function bridges the pathfinding algorithm with the existing game code.
-    """
-    # Convert pixel coordinates to tile coordinates
-    start_tile = (current_pos[0] // tile_width, current_pos[1] // tile_height)
-    goal_tile = (target_pos[0] // tile_width, target_pos[1] // tile_height)
-
-    # Find next tile using pathfinding
-    next_tile = find_shortest_path(start_tile, goal_tile, board_definition)
-
-    if next_tile is None:
+def find_shortest_path(start, goal, board_definition, max_search_distance=200):
+    """Dispatcher – Algorithm choosable via PATHFINDING_ALGORITHM in settings.py."""
+    if start == goal:
         return None
 
-    # Convert back to pixel coordinates
-    next_pixel = (next_tile[0] * tile_width, next_tile[1] * tile_height)
-    return next_pixel
+    try:
+        from settings import PATHFINDING_ALGORITHM
+        algo = _ALGORITHMS.get(PATHFINDING_ALGORITHM, dijkstra_pathfinding)
+    except (ImportError, Exception):
+        algo = dijkstra_pathfinding  # fallback wenn settings nicht verfügbar
+
+    return algo(start, goal, board_definition, max_search_distance)

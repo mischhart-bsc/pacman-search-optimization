@@ -55,6 +55,8 @@ class GameEngine:
         self.pause = False
         self.start_counter = 0
         self.game_over = False
+        self.all_dots_eaten = False
+        self.fps_clock = pygame.time.Clock()
 
     def show_game_over(self):
         self.screen.fill((0, 0, 0))
@@ -106,6 +108,7 @@ class GameEngine:
         )
 
     def tick(self):
+        self.fps_clock.tick()
         if self.player.lives == -1:
             self.game_over = True
             self.show_game_over()
@@ -140,6 +143,8 @@ class GameEngine:
                     self.level.score += 50 * self.player.score_multiplier
                     self.player.score_multiplier += 1
                     ghost.set_to_eaten()
+                    if self.all_dots_eaten:
+                        ghost.locked_in_house = True # Ghost will not scatter again
                 elif ghost.is_chasing() or ghost.is_scatter():
                     pygame.time.wait(500)
                     pygame.time.set_timer(PLAYER_EATEN_EVENT, 1, True)
@@ -172,7 +177,18 @@ class GameEngine:
             self.level.score += 50
             self.player.powerup_counter = self.level.power_up_limit
             self.__set_ghosts_state("frightened")
-        if not self.player.powerup:
+        
+        # All Dots eaten -> permanent frightened
+        if not self.all_dots_eaten and not any(
+            BoardStructure.DOT.value in row for row in self.board
+        ):
+            self.all_dots_eaten = True
+            self.__set_ghosts_state("frightened")
+        
+        # permanent frightened mechanic
+        if self.all_dots_eaten:
+            self.player.powerup_counter = self.level.power_up_limit
+        elif not self.player.powerup:
             self.__set_ghosts_state("chase")
 
     def render_ghosts(self):
@@ -220,6 +236,10 @@ class GameEngine:
                     self.screen.get_height() - SCORE_SCREEN_OFFSET,
                 ),
             )
+        
+        # FPS – right from score
+        fps_text = self.game_font.render(f"FPS: {int(self.fps_clock.get_fps())}", True, "yellow")
+        self.screen.blit(fps_text, (SCORE_SCREEN_OFFSET + 200, self.screen.get_height() - SCORE_SCREEN_OFFSET))
 
     def render_ready_text(self):
         ready_text = self.game_font.render(f"READY!", True, "yellow")
