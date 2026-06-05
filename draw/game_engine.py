@@ -10,6 +10,7 @@ from model.entity.ghost.inky import Inky
 from model.entity.ghost.pinky import Pinky
 from model.level_config import LevelConfig
 import math
+import json, os
 
 from model.entity.player.player import Player
 from settings import *
@@ -56,56 +57,40 @@ class GameEngine:
         self.start_counter = 0
         self.game_over = False
         self.all_dots_eaten = False
+        self.current_level = 1
         self.fps_clock = pygame.time.Clock()
+        self.player_name = ""
+        self.name_submitted = False
+        self.highscores = self.__load_scores()   # loads scores.json
 
     def show_game_over(self):
         self.screen.fill((0, 0, 0))
-        font = pygame.font.SysFont("arial", 40)
-        title = font.render("Game Over", True, "red")
-        restart_button = font.render("Hit Space to restart", True, (255, 255, 255))
-        self.screen.blit(
-            title,
-            (
-                self.screen.get_width() / 2 - title.get_width() / 2,
-                self.screen.get_height() / 2 - title.get_height() / 3,
-            ),
-        )
-        self.screen.blit(
-            restart_button,
-            (
-                self.screen.get_width() / 2 - restart_button.get_width() / 2,
-                self.screen.get_height() / 1.9 + restart_button.get_height(),
-            ),
-        )
+        cx = self.screen.get_width() // 2
 
-        self.screen.blit(
-            self.ghosts[0].assets.right[0],
-            (
-                self.screen.get_width() / 2,
-                self.screen.get_height() / 2 + self.screen.get_height() / 6,
-            ),
-        )
-        self.screen.blit(
-            self.ghosts[1].assets.right[0],
-            (
-                self.screen.get_width() / 2 - self.screen.get_width() / 8,
-                self.screen.get_height() / 2 + self.screen.get_height() / 6,
-            ),
-        )
-        self.screen.blit(
-            self.ghosts[2].assets.right[0],
-            (
-                self.screen.get_width() / 2 - self.screen.get_width() / 16,
-                self.screen.get_height() / 2 + self.screen.get_height() / 6,
-            ),
-        )
-        self.screen.blit(
-            self.ghosts[3].assets.right[0],
-            (
-                self.screen.get_width() / 2 + self.screen.get_width() / 16,
-                self.screen.get_height() / 2 + self.screen.get_height() / 6,
-            ),
-        )
+        # fonts
+        title_font = pygame.font.SysFont("arial", 56)
+        normal_font = pygame.font.SysFont("arial", 36)
+        hint_font = pygame.font.SysFont("arial", 26)
+
+        # texts
+        title = title_font.render("GAME OVER", True, "red")
+        score = normal_font.render(f"Score: {self.level.score}", True, "white")
+        level = normal_font.render(f"Level reached: {self.current_level}", True, "yellow")
+        restart = hint_font.render("Press SPACE to restart", True, (180, 180, 180))
+
+        # Layout
+        self.screen.blit(title,   (cx - title.get_width()   // 2, 260))
+        self.screen.blit(score,   (cx - score.get_width()   // 2, 340))
+        self.screen.blit(level,   (cx - level.get_width()   // 2, 420))
+        self.screen.blit(restart, (cx - restart.get_width() // 2, 500))
+
+        # Ghost-Sprites
+        ghost_y = 580
+        offsets = [0, -self.screen.get_width() // 8,
+                -self.screen.get_width() // 16,
+                    self.screen.get_width() // 16]
+        for ghost, offset in zip(self.ghosts, offsets):
+            self.screen.blit(ghost.assets.right[0], (cx + offset, ghost_y))
 
     def tick(self):
         self.fps_clock.tick()
@@ -118,6 +103,8 @@ class GameEngine:
             self.render_ghosts()
             if self.player.is_ready():
                 self.reset_ghosts()
+                for ghost in self.ghosts:
+                    ghost.velocity = DEFAULT_VELOCITY + (self.current_level - 1)
                 self.render_ready_text()
                 self.render_player()
                 self.start_counter += 1
@@ -129,6 +116,8 @@ class GameEngine:
                 self.move_player()
                 self.move_ghosts()
                 self.check_ghosts_and_player_collision()
+                if self.all_dots_eaten and all(ghost.locked_in_house for ghost in self.ghosts):
+                    self.__advance_level()
             elif self.player.is_eaten():
                 self.player.play_death_animation(self.screen)
             if DEBUG:
@@ -220,6 +209,45 @@ class GameEngine:
             self.flick = not self.flick
         if self.flicker_counter == FLICK_FREQUENCY * 2:
             self.flicker_counter = 0
+    
+    def __advance_level(self):
+        self.current_level += 1
+
+        # reset board (restore all dots)
+        self.board_definition.board[:] = BOARD
+
+        # Reset Flag states
+        self.all_dots_eaten = False
+        self.player.powerup = False
+        self.player.powerup_counter = 0
+        self.player.score_multiplier = 1
+
+        # reset ghosts
+        for ghost in self.ghosts:
+            ghost.locked_in_house = False
+            ghost.cached_path = []
+            ghost.last_tile = None
+            ghost.last_target_tile = None
+            ghost.reset_position()
+
+        # set player to READY-state
+        self.player.set_to_ready()
+        self.start_counter = 0
+    
+    def __load_scores(self):
+        if os.path.exists("scores.json"):
+            with open("scores.json", "r") as f:
+                return json.load(f)
+        return []
+
+    def submit_score(self):
+        name = self.player_name.strip() or "AAA"
+        entry = {"name": name, "score": self.level.score, "level": self.current_level}
+        self.highscores.append(entry)
+        self.highscores = sorted(self.highscores, key=lambda x: x["score"], reverse=True)[:10]
+        with open("scores.json", "w") as f:
+            json.dump(self.highscores, f, indent=2)
+        self.name_submitted = True
 
     def draw_misc(self):
         score_text = self.game_font.render(f"Score: {self.level.score}", True, "white")
@@ -240,6 +268,10 @@ class GameEngine:
         # FPS – right from score
         fps_text = self.game_font.render(f"FPS: {int(self.fps_clock.get_fps())}", True, "yellow")
         self.screen.blit(fps_text, (SCORE_SCREEN_OFFSET + 200, self.screen.get_height() - SCORE_SCREEN_OFFSET))
+
+        # Level - right from FPS
+        level_text = self.game_font.render(f"Level: {self.current_level}", True, "white")
+        self.screen.blit(level_text, (SCORE_SCREEN_OFFSET + 400, self.screen.get_height() - SCORE_SCREEN_OFFSET))
 
     def render_ready_text(self):
         ready_text = self.game_font.render(f"READY!", True, "yellow")
