@@ -40,18 +40,28 @@ class Game:
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT:
-                    self.game_engine.queued_direction = Direction.LEFT
-                if event.key == pygame.K_RIGHT:
-                    self.game_engine.queued_direction = Direction.RIGHT
-                if event.key == pygame.K_DOWN:
-                    self.game_engine.queued_direction = Direction.DOWN
-                if event.key == pygame.K_UP:
-                    self.game_engine.queued_direction = Direction.UP
-                if event.key == pygame.K_SPACE and self.game_engine.game_over:
-                    pygame.init()
-                    self.game_start_sfx.play()
-                    self.game_engine = self.init()
+                if self.game_engine.game_over:
+                    if not self.game_engine.name_submitted:
+                        if event.key == pygame.K_RETURN and self.game_engine.player_name:
+                            self.game_engine.submit_score()
+                        elif event.key == pygame.K_BACKSPACE:
+                            self.game_engine.player_name = self.game_engine.player_name[:-1]
+                        elif event.unicode.isprintable() and len(self.game_engine.player_name) < 12:
+                            self.game_engine.player_name += event.unicode
+                    elif event.key == pygame.K_SPACE:
+                        pygame.init()
+                        self.game_start_sfx.play()
+                        self.game_engine = self.init()
+                else:
+                    if event.key == pygame.K_LEFT:
+                        self.game_engine.queued_direction = Direction.LEFT
+                    if event.key == pygame.K_RIGHT:
+                        self.game_engine.queued_direction = Direction.RIGHT
+                    if event.key == pygame.K_DOWN:
+                        self.game_engine.queued_direction = Direction.DOWN
+                    if event.key == pygame.K_UP:
+                        self.game_engine.queued_direction = Direction.UP
+   
             if event.type == GHOST_EATEN_EVENT:
                 self.game_engine.play_ghost_runsaway_sound()
             if event.type == PLAYER_EATEN_EVENT:

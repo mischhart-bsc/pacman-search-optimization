@@ -66,31 +66,65 @@ class GameEngine:
     def show_game_over(self):
         self.screen.fill((0, 0, 0))
         cx = self.screen.get_width() // 2
+        font_big   = pygame.font.SysFont("arial", 56)
+        font_mid   = pygame.font.SysFont("arial", 36)
+        font_small = pygame.font.SysFont("arial", 28)
 
-        # fonts
-        title_font = pygame.font.SysFont("arial", 56)
-        normal_font = pygame.font.SysFont("arial", 36)
-        hint_font = pygame.font.SysFont("arial", 26)
+        # Results at the top
+        self.screen.blit(font_big.render("GAME OVER", True, "red"),
+            self.__centered(font_big, "GAME OVER", cx, 80))
+        self.screen.blit(font_mid.render(f"Score: {self.level.score}", True, "white"),
+            self.__centered(font_mid, f"Score: {self.level.score}", cx, 160))
+        self.screen.blit(font_mid.render(f"Level reached: {self.current_level}", True, "yellow"),
+            self.__centered(font_mid, f"Level reached: {self.current_level}", cx, 210))
 
-        # texts
-        title = title_font.render("GAME OVER", True, "red")
-        score = normal_font.render(f"Score: {self.level.score}", True, "white")
-        level = normal_font.render(f"Level reached: {self.current_level}", True, "yellow")
-        restart = hint_font.render("Press SPACE to restart", True, (180, 180, 180))
+        # Name input
+        if not self.name_submitted:
+            self.screen.blit(font_small.render("Enter your name:", True, (180,180,180)),
+                self.__centered(font_small, "Enter your name:", cx, 290))
+            name_display = self.player_name + "_"
+            self.screen.blit(font_mid.render(name_display, True, "cyan"),
+                self.__centered(font_mid, name_display, cx, 330))
+            self.screen.blit(font_small.render("ENTER to confirm", True, (120,120,120)),
+                self.__centered(font_small, "ENTER to confirm", cx, 385))
+        else:
+            self.screen.blit(font_small.render("Press SPACE to play again", True, (180,180,180)),
+                self.__centered(font_small, "Press SPACE to play again", cx, 330))
 
-        # Layout
-        self.screen.blit(title,   (cx - title.get_width()   // 2, 260))
-        self.screen.blit(score,   (cx - score.get_width()   // 2, 340))
-        self.screen.blit(level,   (cx - level.get_width()   // 2, 420))
-        self.screen.blit(restart, (cx - restart.get_width() // 2, 500))
+        # Scoreboard
+        table_y = 420
+        pygame.draw.line(self.screen, (60, 60, 60), (50, table_y), (850, table_y), 1)
+        self.screen.blit(font_small.render("TOP SCORES", True, (200, 200, 200)),
+            self.__centered(font_small, "TOP SCORES", cx, table_y + 8))
 
-        # Ghost-Sprites
-        ghost_y = 580
-        offsets = [0, -self.screen.get_width() // 8,
-                -self.screen.get_width() // 16,
-                    self.screen.get_width() // 16]
-        for ghost, offset in zip(self.ghosts, offsets):
-            self.screen.blit(ghost.assets.right[0], (cx + offset, ghost_y))
+        # column positions
+        col_rank  = 80
+        col_name  = 200
+        col_score = 560
+        col_level = 740
+        header_y  = table_y + 45
+
+        # column names
+        col_color = (150, 150, 150)
+        for text, x in [("Rank", col_rank), ("Name", col_name),
+                         ("Score", col_score), ("Level", col_level)]:
+            self.screen.blit(font_small.render(text, True, col_color), (x, header_y))
+
+        pygame.draw.line(self.screen, (80, 80, 80), (50, header_y + 32), (850, header_y + 32), 1)
+
+        # entries
+        for i, entry in enumerate(self.highscores[:10]):
+            row_y = header_y + 42 + i * 30
+            color = "gold" if i == 0 else "white"
+            self.screen.blit(font_small.render(f"{i+1}.",              True, color), (col_rank,  row_y))
+            self.screen.blit(font_small.render(entry['name'],          True, color), (col_name,  row_y))
+            self.screen.blit(font_small.render(str(entry['score']),    True, color), (col_score, row_y))
+            self.screen.blit(font_small.render(str(entry['level']),    True, color), (col_level, row_y))
+
+    # help-method for centered placement
+    def __centered(self, font, text, cx, y):
+        surf = font.render(text, True, (0,0,0))
+        return (cx - font.size(text)[0] // 2, y)
 
     def tick(self):
         self.fps_clock.tick()
