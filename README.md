@@ -1,97 +1,128 @@
-# Pacman - Efficient Algorithms Course (EALG)
+# Pacman Search Optimization
 
-Old classic Pacman game written in Python using pygame library.
+A Pacman game in Python where the ghosts find their way through the maze with **shortest-path search**. The data structure behind it, a **binary min-heap priority queue**, and the search algorithms, **Dijkstra** and **A\***, are implemented from scratch. The project measures how much faster A* is and adds levels and a high-score table to the game.
 
-**🎓 Educational Repository**: Used in the Efficient Algorithms (EALG) course. It serves as a foundation for implementing efficient data structures and algorithms. Your work will influence the game difficulty and ghost behavior. After MC1 and MC2, the ghosts will play noticeably better. 🎮
+<p>
+  <img src="https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/pygame-2C8E3C" alt="pygame">
+  <img src="https://img.shields.io/badge/NumPy-013243?logo=numpy&logoColor=white" alt="NumPy">
+  <img src="https://img.shields.io/badge/pytest-0A9EDC?logo=pytest&logoColor=white" alt="pytest">
+</p>
 
- <img width="892" alt="Screenshot 2024-06-25 at 12 31 20" src="https://github.com/MathMark/PacMan/assets/13971845/19fa8ce2-a5ed-4cb2-81d6-0130cdf5268e">
+<p align="center">
+  <img src="docs/gameplay.png" width="55%" alt="Pacman maze with Pac-Man and the four ghosts chasing him">
+</p>
 
+## What I built
 
-# 🛠️ Implementation Guide
+The game itself (maze, sprites, sound, ghost personalities) comes from an existing open-source Pacman, see [Credits](#credits). These parts are my work:
 
-You are expected to complete the provided empty methods in [priority_queue](model/algorithms/priority_queue.py) and [pathfinding](model/algorithms/pathfinding.py). 
+| Part | What it does | Where |
+|---|---|---|
+| **Priority queue** | A binary min-heap written without `heapq`: `insert`, `extract_min`, `peek_min` and `decrease_priority`. | [`model/algorithms/priority_queue.py`](model/algorithms/priority_queue.py) |
+| **Pathfinding** | Dijkstra's algorithm and A* with a Manhattan-distance heuristic on the maze grid. A setting switches between them. | [`model/algorithms/pathfinding.py`](model/algorithms/pathfinding.py) |
+| **Ghost navigation** | Ghosts follow the computed shortest path to their target. A cached path is only recalculated when a ghost reaches a new tile or its target moves. | [`model/entity/ghost/ghost.py`](model/entity/ghost/ghost.py) |
+| **Levels** | Clearing the maze starts the next level with faster ghosts. | [`draw/game_engine.py`](draw/game_engine.py) |
+| **High scores** | A game-over screen with name entry and a persistent top-10 table. | [`draw/game_engine.py`](draw/game_engine.py), `scores.json` |
+| **Tests and benchmarks** | 33 unit tests and two scripts that produce the figures below. | [`tests/`](tests), [`benchmarks/`](benchmarks) |
 
-Do not remove or modify the existing method signatures. If necessary, you may add additional helper methods.
+## How the ghosts find Pac-Man
 
-## What to Change Where in the Code
+Each ghost has a target tile, for example Pac-Man's position for Blinky. Instead of just stepping to the neighbouring tile that is closest in a straight line, which gets ghosts stuck behind walls, a ghost searches the maze for the shortest walkable path and follows it.
 
-- **Priority Queue** (MC1): Implement your efficient version in `priority_queue.py`. Replace the placeholder with your own solution.
-- **Pathfinding Algorithm** (MC2): Implement your algorithm in `pathfinding.py`. Add an A* based solution or machine learning (ML) based ghost movement strategy.
-- **Ghost AI** (MC2): Modify `ghosts.py`. Integrate your pathfinding into the `Ghost.calc_distance(...)` method.
-- **Settings** (`settings.py`): Adjust the parameter `USE_PATHFINDING = True | False` to evaluate your algorithm under different conditions.
+- **Dijkstra** expands tiles in order of their distance from the start, so it searches in all directions.
+- **A\*** adds a guess of the remaining distance (Manhattan distance to the goal) to each tile's priority, so it searches mainly towards the goal. It still returns a shortest path.
+- Both pull the next tile from the priority queue, so the speed of the heap matters directly.
 
-## Notes
+<p align="center">
+  <img src="docs/search_comparison.png" width="90%" alt="Dijkstra searches 302 tiles, A* searches 68 tiles for the same route through the maze">
+</p>
 
-- The game will not change after you complete MC1.
-- The effects will only become visible once you implement the components required for MC2.
-- “The show must go on.” 🔛 The game must remain playable at every stage.
-- You are expected to implement all methods with missing bodies, except those marked as “Optional to implement.”
-- Please review the evaluation criteria carefully, ideally before starting to code and, before submission.
+Averaged over 300 random start and goal tiles on the real maze (392 walkable tiles), reproduced with [`benchmarks/search_comparison.py`](benchmarks/search_comparison.py):
 
-# 📋 Student Submission Guide
+| Algorithm | Tiles searched | Time per search |
+|---|---|---|
+| Dijkstra | 158.7 | 846 µs |
+| A* | 43.9 | 248 µs |
 
-## Milestone Branches
+A* searches about 3.6 times fewer tiles and is about 3.4 times faster, and both return the same path length on every one of the 300 pairs.
 
-Students must submit their work on two milestone branches:
+**Performance.** A ghost does not search on every frame. It keeps its path and only searches again when it enters a new tile, when its target has moved to another tile, or when the path is used up. While frightened, eaten or inside the ghost house, a ghost keeps the original straight-line movement.
 
-- **`mc1`** - Milestone 1: Implement an efficient data structure from scratch, specifically a priority queue.
-- **`mc2`** - Milestone 2: Implement an efficient pathfinding algorithm, with or without ML.
+## The priority queue
 
-## How to Submit Your Work
+The heap is stored in a flat list, where the children of index `i` are at `2i + 1` and `2i + 2`. `insert` appends an item and moves it up, `extract_min` replaces the root with the last item and moves it down. Both take O(log n) time.
 
-1. **Create your MC branch** from the main branch:
-   ```bash
-   git checkout main
-   git pull origin main
-   git checkout -b mc<1|2>_<your surname_name>
-   ```
+<p align="center">
+  <img src="docs/heap_performance.png" width="80%" alt="Time per insert and extract_min operation for heap sizes from 256 to 131072">
+</p>
 
-2. **Make your changes** and test locally:
-   ```bash
-   python pacman.py
-   ```
+When the heap grows 512 times, from 256 to 131,072 items, `extract_min` becomes about 4 times slower and `insert` about 1.3 times, far from the 512 times that linear growth would give. The curve for `extract_min` bends up for the largest heaps, probably because big lists no longer fit into the processor cache. Values depend on the machine, you can reproduce them with [`benchmarks/heap_scaling.py`](benchmarks/heap_scaling.py).
 
-3. **Commit with clear messages**:
-   ```bash
-   git commit -m "Describe what you did"
-   ```
+## Game extensions
 
-4. **Push to your feature branch**:
-   ```bash
-   git push origin <your_branch>
-   ```
+<p align="center">
+  <img src="docs/game_over.png" width="45%" alt="Game-over screen with score, level, name entry and a top-scores table">
+</p>
 
-5. **Create a Pull Request** targeting the appropriate milestone branch (`mc1` or `mc2`):
-   - Go to the repository on GitHub
-   - Click "New Pull Request"
-   - Set base branch to `mc1` or `mc2` (depending on milestone)
-   - Select your feature branch
-   - Add a description of your implementation
+- **Levels.** After the last dot, the ghosts turn permanently frightened. When Pac-Man has eaten all four, the maze is refilled and the next level starts. Ghost speed rises by one step per level.
+- **Game over and scores.** When the last life is lost, you enter a name of up to 12 characters. The ten best scores are saved in `scores.json` and shown with rank, name, score and level.
+- **HUD.** The status line shows score, FPS, level and lives.
 
-6. **Wait for review** - Your code will be reviewed and graded five days after the specified deadline in the course calendar. During these five days, you may still make changes and resubmit your work. However, each additional day on which you submit changes will reduce your grade by five percent.
+## Run it yourself
 
-## Requirements for Grading
+Tested with Python 3.12 and 3.13.
 
-- ✅ A clear commit history that reflects your development process, with meaningful commit messages
-- ✅ Clean and readable code that follows consistent style and structure
-- ✅ Well commented code that explains your algorithmic choices and design decisions
-- ✅ An efficient implementation, algorithmic complexity matters and should be justified where relevant
-- ✅ Proper testing of your implementation before submission
-- ✅ The code must run without crashing at every stage. Even after MC1, when the game behavior does not change, the project must remain fully runnable
-- ✅ No plagiarism, submit your own original solutions
+```bash
+pip install -r requirements.txt
+python pacman.py
+```
 
+Steer with the arrow keys. In `settings.py` you can change the behaviour:
 
-# Description (from the original repo)
+| Setting | Effect |
+|---|---|
+| `USE_PATHFINDING` | `True`: ghosts follow shortest paths. `False`: original straight-line movement. |
+| `PATHFINDING_ALGORITHM` | `"a_star"` or `"dijkstra"`. |
+| `DEBUG` | Shows the ghosts' targets and the tile grid. |
 
-The game contains a single demo-level. To increase difficulty you can play around with variables in settings file changing POWERUP_LIMIT, SCATTER_DISABLE_TRIGGER, SCATTER_ENABLE_TRIGGER, VELOCITY. You can also set 
-variable DEBUG to True to see ghosts targets visualization and grid.
+### Tests and benchmarks
 
-## Ghosts behaviour
+```bash
+python -m pytest -k "not plot"        # 31 fast tests, under a second
+python -m pytest                      # all 33, the two plot tests take a few minutes
+python benchmarks/search_comparison.py
+python benchmarks/heap_scaling.py
+```
 
-| Name   | Description  | Behaviour                                                                                                                                                                                                                                                               |
-|--------|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Blinky | Red Ghost    | Follows Pac-Man directly during Chase mode, and heads to the upper-right corner during Scatter mode.                                                                                                                                                                    |
-| Pinky  | Pink ghost   | Chases towards the spot 2 Pac-Dots in front of Pac-Man. Due to a bug in the original game's coding, if Pac-Man faces upwards, Pinky's target will be 2 Pac-Dots in front of and 2 to the left of Pac-Man. During Scatter mode, she heads towards the upper-left corner. |
-| Inky   | Blue ghost   | During Chase mode, his target is a bit complex. His target is relative to both Blinky and Pac-Man, where the distance Blinky is from Pinky's target is doubled to get Inky's target. He heads to the lower-right corner during Scatter mode.                            |
-| Clyde  | Yellow ghost | Chases directly after Pac-Man, but tries to head to his Scatter corner when within an 8-Dot radius of Pac-Man. His Scatter Mode corner is the lower-left.                                                                                                               |
+The tests check the heap (ordering, duplicates, interleaved operations, the heap property) and the pathfinding (neighbours, walls, shortest paths, unreachable goals, A* against Dijkstra). The two plot tests open plot windows that you have to close, and they are the slow ones.
 
+## Repository structure
+
+```
+.
+├── pacman.py                    # Entry point and event loop
+├── settings.py                  # Game and pathfinding settings
+├── model/
+│   ├── algorithms/
+│   │   ├── priority_queue.py    # Binary min-heap
+│   │   └── pathfinding.py       # Dijkstra, A*, dispatcher
+│   └── entity/                  # Player and ghosts
+├── draw/game_engine.py          # Game loop, levels, game-over screen, scores
+├── levels/                      # Level setup
+├── tests/                       # Heap and pathfinding tests
+├── benchmarks/                  # Scripts for the figures in this README
+├── docs/                        # Images used in this README
+├── assets/, media/              # Sprites and sounds
+└── requirements.txt
+```
+
+## Limitations
+
+- All tiles cost 1 to walk, so the search finds the path with the fewest tiles. Tunnel wrap-around is not used by the search.
+- `decrease_priority` looks for the item with a linear scan, so it takes O(n) time. The searches do not use it, they insert duplicate entries instead.
+- The ghosts all use the same search and differ only in their target.
+
+## Credits
+
+The Pacman game, its sprites and its sounds were written by Vadim Martsun ([MathMark/PacMan](https://github.com/MathMark/PacMan)) and later adapted for teaching by Merve Selçuk-Şimşek. Pac-Man is a trademark of Bandai Namco, this is a non-commercial learning project.

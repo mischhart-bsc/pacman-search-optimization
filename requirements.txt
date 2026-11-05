@@ -1,2 +1,6 @@
-pygame == 2.5.2
-numpy == 1.26.4
+pygame>=2.5.2
+numpy>=1.26.4
+
+# only for the tests and the benchmarks
+matplotlib>=3.8
+pytest>=8.0
